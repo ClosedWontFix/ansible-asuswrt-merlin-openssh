@@ -79,7 +79,7 @@ openssh_syslog_facility: 'AUTH'
 Example Playbook
 ----------------
 
-Including an example of how to use your role (for instance, with variables passed in as parameters) is always nice for users too:
+Below is an example playbook.  Ensure that `gather_facts: false` is set.  Ansible cannot gather system facts until `python3` is installed on the `inventory_host`.  Once `python3` is installed, the role will gather system facts.
 
 ```yaml
   - hosts: asuswrt_merlin
