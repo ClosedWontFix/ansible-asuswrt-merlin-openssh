@@ -1,0 +1,29 @@
+---
+- name: (Re)Start sshd
+  block:
+    - name: Get sshd status
+      register: sshd_status
+      changed_when: false
+      ansible.builtin.command:
+        cmd: /opt/etc/init.d/S40sshd status
+
+    - name: Start sshd service
+      changed_when: true
+      when: sshd_status.stdout == "sshd is not running"
+      ansible.builtin.command:
+        cmd: /opt/etc/init.d/S40sshd start
+
+    - name: Restart sshd service
+      changed_when: true
+      when: '"PID of sshd is" in sshd_status.stdout'
+      ansible.builtin.command:
+        cmd: /opt/etc/init.d/S40sshd restart
+
+    - name: Check if openssh port is open
+      delegate_to: localhost
+      ansible.builtin.wait_for:
+        host: "{{ inventory_hostname }}"
+        port: "{{ openssh_port }}"
+        timeout: '2'
+        state: started
+        msg: "ssh port {{ openssh_port }} is not open."

@@ -1,0 +1,4 @@
+---
+# vars file for ansible-asuswrt-merlin
+ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+group: 'root'

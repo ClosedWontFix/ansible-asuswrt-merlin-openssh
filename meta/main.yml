@@ -1,0 +1,11 @@
+galaxy_info:
+  author: ClosedWontFix
+  description: Install OpenSSH on Asuswrt-Merlin using Ansible
+  license: MIT
+  min_ansible_version: 2.1
+  galaxy_tags:
+    - openssh
+    - asuswrt-merlin
+    - opkg
+    - entware
+dependencies: []

@@ -1,0 +1,49 @@
+# {{ ansible_managed }}
+#
+
+# This is the sshd server system-wide configuration file.  See
+# sshd_config(5) for more information.
+
+Port {{ openssh_port }}
+AddressFamily {{ openssh_address_family }}
+{% for listen_address in openssh_listen_address %}
+ListenAddress {{ listen_address }}
+{% endfor %}
+
+{% for host_key in openssh_host_key %}
+HostKey /opt/etc/ssh/ssh_host_{{ host_key }}_key
+{% endfor %}
+
+# Ciphers and keying
+RekeyLimit {{ openssh_rekey_limit | default('default none') }}
+Ciphers {{ openssh_ciphers | default('+chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes256-ctr,aes256-cbc') }}
+
+# Logging
+SyslogFacility {{ openssh_syslog_facility | default('AUTH') }}
+LogLevel {{ openssh_log_level | default('INFO') }}
+
+# Authentication:
+LoginGraceTime {{ openssh_login_grace_time | default('2m') }}
+PermitRootLogin {{ openssh_root_login | default('permit-password') }}
+StrictModes {{ openssh_strict_modes | default('yes') }}
+MaxAuthTries {{ openssh_max_auth_tries | default('6') }}
+MaxSessions {{ openssh_max_sessions | default('10') }}
+
+PubkeyAuthentication {{ openssh_pubkey_authentication | default('yes') }}
+
+# The default is to check both .ssh/authorized_keys and .ssh/authorized_keys2
+# but this is overridden so installations will only check .ssh/authorized_keys
+AuthorizedKeysFile	{{ openssh_authorized_keys_file | default('.ssh/authorized_keys') }}
+
+AuthorizedPrincipalsFile {{ openssh_authorized_principals_file | default('none') }}
+
+AuthorizedKeysCommand {{ openssh_authorized_keys_command | default('none') }}
+AuthorizedKeysCommandUser {{ openssh_authorized_keys_command_user | default('nobody') }}
+
+# For this to work you will also need host keys in /opt/etc/ssh/ssh_known_hosts
+
+{% if (openssh_sftp is defined and openssh_sftp is true) or (openssh_sftp is undefined) %}
+# override default of no subsystems
+Subsystem	sftp	/opt/libexec/sftp-server
+{% endif %}
+

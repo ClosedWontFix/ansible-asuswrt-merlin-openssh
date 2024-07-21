@@ -1,0 +1,13 @@
+---
+# defaults file for ansible-asuswrt-merlin-openssh
+ansible_python_interpreter: '/opt/bin/python'
+bootstrap_ssh_port: '2222'
+openssh_address_family: 'any'
+openssh_host_key:
+  - 'rsa'
+  - 'ed25519'
+openssh_listen_address:
+  - '0.0.0.0'
+openssh_port: '22'
+openssh_root_login: 'yes'
+openssh_sftp: true

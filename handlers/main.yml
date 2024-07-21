@@ -1,0 +1,4 @@
+---
+# handlers file for ansible-asuswrt-merlin-openssh
+- name: Start sshd
+  ansible.builtin.include_tasks: sshd_handler.yml

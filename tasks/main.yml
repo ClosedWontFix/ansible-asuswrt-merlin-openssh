@@ -1,0 +1,151 @@
+---
+- name: Check if bootstrap ssh port is open
+  delegate_to: localhost
+  ansible.builtin.wait_for:
+    host: "{{ inventory_hostname }}"
+    port: "{{ bootstrap_ssh_port }}"
+    timeout: '2'
+    state: started
+    msg: "Bootstrap ssh port {{ bootstrap_ssh_port }} is not open."
+
+- name: Ensure python is installed
+  vars:
+    ansible_port: "{{ bootstrap_ssh_port }}"
+    ansible_ssh_transfer_method: piped
+  block:
+    - name: Test for python
+      changed_when: false
+      failed_when: false
+      register: check_python
+      vars:
+        ansible_ssh_transfer_method: piped
+      # ansible.builtin.raw: test -x /opt/bin/python
+      ansible.builtin.raw: test -x {{ ansible_python_interpreter }}
+
+    - name: Install python packages
+      when: check_python.rc != 0
+      changed_when: true
+      vars:
+        ansible_ssh_transfer_method: piped
+      ansible.builtin.raw: test -x /opt/bin/opkg && \
+        (opkg update && opkg install python3)
+
+- name: Ensure openssh is installed
+  vars:
+    ansible_port: "{{ bootstrap_ssh_port }}"
+  block:
+    - name: Gather Facts
+      ansible.builtin.gather_facts:
+
+    - name: Ensure OpenSSH is installed
+      community.general.opkg:
+        name:
+          - openssh-server
+          - openssh-client
+          - openssh-keygen
+          - openssh-sftp-server
+        state: present
+        update_cache: true
+      notify: Start sshd
+
+    - name: Check if private ssh server keys exist
+      check_mode: true
+      register: ssh_server_priv_keys
+      ansible.builtin.file:
+        path: /opt/etc/ssh/ssh_host_{{ item }}_key
+      loop: "{{ openssh_host_key }}"
+
+    - name: Check if public ssh server keys exist
+      check_mode: true
+      register: ssh_server_pub_keys
+      ansible.builtin.file:
+        path: /opt/etc/ssh/ssh_host_{{ item }}_key.pub
+      loop: "{{ openssh_host_key }}"
+
+    - name: Ensure ssh server keys are present  # noqa: command-instead-of-shell
+      ansible.builtin.shell:
+        cmd: /opt/bin/ssh-keygen -f \
+          /opt/etc/ssh/ssh_host_{{ item }}_key -t {{ item }} -N ''
+        creates: /opt/etc/ssh/ssh_host_{{ item }}_key
+      loop: "{{ openssh_host_key }}"
+      notify: Start sshd
+
+    - name: Enforce private ssh server key permissions
+      ansible.builtin.file:
+        dest: /opt/etc/ssh/ssh_host_{{ item }}_key
+        owner: "{{ ansible_facts['user_id'] }}"
+        group: '{{ group }}'
+        mode: '0600'
+      loop: "{{ openssh_host_key }}"
+      notify: Start sshd
+
+    - name: Enforce public ssh server key permissions
+      ansible.builtin.file:
+        dest: /opt/etc/ssh/ssh_host_{{ item }}_key.pub
+        owner: "{{ ansible_facts['user_id'] }}"
+        group: '{{ group }}'
+        mode: '0644'
+      loop: "{{ openssh_host_key }}"
+      notify: Start sshd
+
+    - name: Ensure sshd_config is configured
+      ansible.builtin.template:
+        dest: /opt/etc/ssh/sshd_config
+        src: templates/sshd_config.j2
+        owner: "{{ ansible_facts['user_id'] }}"
+        group: '{{ group }}'
+        mode: '0644'
+      notify: Start sshd
+
+    # https://github.com/RMerl/asuswrt-merlin.ng/wiki/Installing-and-running-openSSH-on-Merlin
+    - name: Ensure administrative user is not expired
+      ansible.builtin.replace:
+        path: /etc/shadow
+        regexp: "(^{{ ansible_facts['user_id'] }}.*7:0)(:0:$)"
+        replace: '\1::'
+        # backup: true
+        owner: "{{ ansible_facts['user_id'] }}"
+        group: '{{ group }}'
+        mode: '0644'
+
+    - name: Ensure shadow.postconf exists
+      ansible.builtin.lineinfile:
+        path: /jffs/scripts/shadow.postconf
+        line: '#!/bin/sh'
+        insertbefore: BOF
+        owner: "{{ ansible_facts['user_id'] }}"
+        group: '{{ group }}'
+        mode: '0755'
+        create: true
+        state: present
+
+    - name: Ensure administrative user is not expired on reboot
+      ansible.builtin.blockinfile:
+        path: /jffs/scripts/shadow.postconf
+        block: |
+          # Disable password expiration for {{ ansible_facts['user_id'] }}
+          sed -i.bak '/^{{ ansible_facts['user_id'] }}:/ s!:0:$!::!' /etc/shadow
+        owner: "{{ ansible_facts['user_id'] }}"
+        group: '{{ group }}'
+        mode: '0755'
+        state: present
+
+    - name: Ensure sshd user exists in passwd file
+      ansible.builtin.lineinfile:
+        path: /etc/passwd
+        line: 'sshd:x:22:65534:OpenSSH Server:/opt/var/empty:/dev/null'
+        owner: "{{ ansible_facts['user_id'] }}"
+        group: '{{ group }}'
+        mode: '0644'
+        state: present
+      notify: Start sshd
+
+    - name: Ensure sshd user exists in passwd.add file
+      ansible.builtin.lineinfile:
+        path: /jffs/configs/passwd.add
+        line: 'sshd:x:22:65534:OpenSSH Server:/opt/var/empty:/dev/null'
+        owner: "{{ ansible_facts['user_id'] }}"
+        group: '{{ group }}'
+        mode: '0644'
+        create: true
+        state: present
