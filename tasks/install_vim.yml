@@ -1,9 +1,0 @@
----
-- name: Install vim packages
-  tags: vim
-  community.general.opkg:
-    name:
-      - vim-full
-      - vim-runtime
-    state: present
-    update_cache: true

@@ -19,7 +19,6 @@
       register: check_python
       vars:
         ansible_ssh_transfer_method: piped
-      # ansible.builtin.raw: test -x /opt/bin/python
       ansible.builtin.raw: test -x {{ ansible_python_interpreter }}
 
     - name: Install python packages
@@ -103,12 +102,11 @@
         path: /etc/shadow
         regexp: "(^{{ ansible_facts['user_id'] }}.*7:0)(:0:$)"
         replace: '\1::'
-        # backup: true
         owner: "{{ ansible_facts['user_id'] }}"
         group: '{{ group }}'
         mode: '0644'
 
-    - name: Ensure shadow.postconf exists
+    - name: Ensure /jffs/scripts/shadow.postconf exists
       ansible.builtin.lineinfile:
         path: /jffs/scripts/shadow.postconf
         line: '#!/bin/sh'
@@ -140,7 +138,7 @@
         state: present
       notify: Start sshd
 
-    - name: Ensure sshd user exists in passwd.add file
+    - name: Ensure sshd user exists in /jffs/configs/passwd.add file
       ansible.builtin.lineinfile:
         path: /jffs/configs/passwd.add
         line: 'sshd:x:22:65534:OpenSSH Server:/opt/var/empty:/dev/null'
